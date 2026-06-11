@@ -9,7 +9,7 @@ def gen_memo_data(vocabLength, repeatTimes, fileName):
         string.digits +           # 0-9 (10)
         string.punctuation        # !, @, #, etc. (32)
     )
-    character_pool = character_pool.replace('=', ' ')
+    character_pool = character_pool.replace('=', ' ') # Space is used to replace '=' in the mapping as it is a special character.
     # 2. Check if we need to dynamically inject extra characters
     if vocabLength > len(character_pool):
         extra_needed = vocabLength - len(character_pool)

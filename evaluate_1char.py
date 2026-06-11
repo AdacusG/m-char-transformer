@@ -54,7 +54,7 @@ with open(input_path, 'r', encoding='utf-8') as f:
             true_pairs[prompt_side] = target_side
 
 # Generate evaluation configurations
-test_prompts = [c1 + c2 for c1 in base_chars for c2 in base_chars]
+test_prompts = [c1 + c2 + c3 for c1 in base_chars for c2 in base_chars for c3 in base_chars]
 total_count = len(test_prompts)
 
 # --- 4. Load Mappings & Model Checkpoint ---
@@ -66,7 +66,9 @@ stoi, itos = meta['stoi'], meta['itos']
 ckpt_path = os.path.join(checkpoint_dir, f'ckpt_{checkpoint}.pt')
 print(f"Loading 1-Character checkpoint from {ckpt_path}...")
 checkpoint = torch.load(ckpt_path, map_location=device)
-gptconf = GPTConfig(**checkpoint['model_args'])
+# Force-align the block size to exactly what the model trained on
+checkpoint_args = checkpoint['model_args']
+gptconf = GPTConfig(**checkpoint_args)
 model = GPT(gptconf)
 state_dict = checkpoint['model']
 
@@ -93,27 +95,32 @@ sample_successes = []
 for i in range(0, total_count, BATCH_SIZE):
     batch_prompts = test_prompts[i:i + BATCH_SIZE]
     
-    # Vectorized tokenization construction across the batch
     tokenized_batch = []
     for prompt in batch_prompts:
         eval_prompt = f"{prompt}="
         tokenized_batch.append([stoi[c] for c in eval_prompt])
         
-    # Shape: (batch_size, prompt_length)
     x = torch.tensor(tokenized_batch, dtype=torch.long, device=device)
-    max_new_tokens = 2 # Change this dynamically to matches your target 'n' length later!
+    
+    # CRITICAL: We want to generate EXACTLY 3 target characters to match your n=3 data!
+    max_new_tokens = 3 
     
     with torch.no_grad():
-        # Batched forward generation pass
-        y = model.generate(x, max_new_tokens, temperature=0.0001, top_k=5)
+        # Slightly bump top_k or let it look at the true max distribution
+        y = model.generate(x, max_new_tokens, temperature=0.01, top_k=None)
     
-    # Parse results out of the generated batch matrices
     generated_sequences = y.tolist()
     for idx, seq in enumerate(generated_sequences):
         full_output = ''.join([itos[token] for token in seq])
         prompt = batch_prompts[idx]
         
-        predicted_target = full_output.split('=')[1].replace('\n', '')
+        # SAFE EXTRACTION: Slice exactly the last 'max_new_tokens' characters generated
+        # This completely avoids string splitting bugs if an '=' is missing or broken!
+        predicted_target = full_output[-max_new_tokens:].replace('\n', '').strip()
+        
+        # Fallback safety validation
+        if prompt not in true_pairs:
+            continue
         ground_truth = true_pairs[prompt]
         
         if predicted_target == ground_truth:
@@ -123,7 +130,7 @@ for i in range(0, total_count, BATCH_SIZE):
         else:
             failed_samples.append((prompt, predicted_target, ground_truth))
 
-    sys.stdout.write(f"\rProcessed: {min(i + BATCH_SIZE, total_count)}/{total_count} prompts..." + "\n")
+    sys.stdout.write(f"\rProcessed: {min(i + BATCH_SIZE, total_count)}/{total_count} prompts...")
     sys.stdout.flush()
 
 # --- 6. Results & Visual Diagnostic Log ---

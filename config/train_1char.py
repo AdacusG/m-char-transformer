@@ -4,7 +4,7 @@
 out_dir = 'out_1char'
 eval_interval = 1000   # Evaluate the model every 1000 steps
 eval_iters = 20
-log_interval = 10     # Log training loss every 10 steps
+log_interval = 100     # Log training loss every 100 steps
 
 # Always save checkpoints if the validation loss improves
 always_save_checkpoint = True

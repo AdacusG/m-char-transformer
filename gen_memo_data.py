@@ -19,8 +19,8 @@ def gen_memo_data(vocabLength, repeatTimes, fileName):
 
     character_pool = character_pool[:vocabLength]
     alphabet = list(character_pool)
-    # Inputs and Outputs are direct copys, where they are all 2 letter combinations of the given alphabet.
-    inputs = ["".join(p) for p in itertools.product(alphabet, repeat=2)]
+    # Inputs and Outputs are direct copys, where they are all 3 letter combinations of the given alphabet.
+    inputs = ["".join(p) for p in itertools.product(alphabet, repeat=3)]
     outputs = inputs.copy()
     # Randomized outputs, but with a fixed seed for reproducibility.
     random.seed(42)
